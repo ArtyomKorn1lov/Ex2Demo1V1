@@ -67,6 +67,7 @@ if($this->StartResultCache()) {
 	}
 	/** Получение элементов каталога по разделам */
 	$arResult["PRODUCT_COUNT"] = 0;
+	$arPrices = [];
 	foreach ($arNews as $key => $arItem) {
 		$rsElements = CIBlockElement::GetList(
 			[],
@@ -77,11 +78,19 @@ if($this->StartResultCache()) {
 		);
 		while ($item = $rsElements->Fetch()) {
 			$arNews[$key]["PRODUCTS"][] = $item;
+			$arPrices[] = $item["PROPERTY_PRICE_VALUE"];
 			$arResult["PRODUCT_COUNT"]++;
 		}
 	}
-	$arResult["ITEMS"] = $arNews;
-	$this->SetResultCacheKeys(["PRODUCT_COUNT"]);
+	/** Получение максимальной и минимальной цены для последущего отображения данных в другом месте */
+	if (!empty($arPrices)) {
+		sort($arPrices);
+		$arResult["MIN_PRICE"] = $arPrices[0];
+		rsort($arPrices);
+		$arResult["MAX_PRICE"] = $arPrices[0];
+		$arResult["ITEMS"] = $arNews;
+	}
+	$this->SetResultCacheKeys(["PRODUCT_COUNT", "MAX_PRICE", "MIN_PRICE"]);
 	$this->IncludeComponentTemplate();
 }
 $APPLICATION->SetTitle(GetMessage("SIMPLECOMP_EXAM2_TITLE_PAGE").$arResult["PRODUCT_COUNT"]);
