@@ -42,11 +42,12 @@ if($this->StartResultCache()) {
 		["ID", "NAME", "DATE_ACTIVE_FROM"]
 	);
 	while ($arItem = $rsElements->Fetch()) {
-		$arNews[] = $arItem;
+		$arNews[$arItem["ID"]] = $arItem;
 		$arNewsIds[] = $arItem["ID"];
 	}
 	/** Получение разделов каталога */
 	$arSections = [];
+    $arSectionsIds = [];
 	$rsElements = CIBlockSection::GetList(
 		[], 
 		["IBLOCK_ID" => $arParams["CATALOG_IBLOCK_ID"], $arParams["CATALOG_SECTION_PROPERTY_CODE"] => $arNewsIds, "ACTIVE" => "Y"], 
@@ -55,33 +56,31 @@ if($this->StartResultCache()) {
 		false
 	);
 	while ($arItem = $rsElements->Fetch()) {
-		$arSections[] = $arItem;
-	}
-	foreach ($arNews as $key => $itemNews) {
-		foreach ($arSections as $itemSections) {
-			if (in_array($itemNews["ID"], $itemSections[$arParams["CATALOG_SECTION_PROPERTY_CODE"]])) {
-				$arNews[$key]["SECTIONS"]["IDS"][] = $itemSections["ID"];
-				$arNews[$key]["SECTIONS"]["NAMES"][] = $itemSections["NAME"];
-			}
-		}
+		$arSections[$arItem["ID"]] = $arItem;
+        $arSectionsIds[] = $arItem["ID"];
 	}
 	/** Получение элементов каталога по разделам */
 	$arResult["PRODUCT_COUNT"] = 0;
 	$arPrices = [];
-	foreach ($arNews as $key => $arItem) {
-		$rsElements = CIBlockElement::GetList(
-			[],
-			["IBLOCK_ID" => $arParams["CATALOG_IBLOCK_ID"], "SECTION_ID" => $arItem["SECTIONS"]["IDS"], "ACTIVE" => "Y"],
-			false, 
-			false, 
-			["NAME", "PROPERTY_MATERIAL", "PROPERTY_ARTNUMBER", "PROPERTY_PRICE"]
-		);
-		while ($item = $rsElements->Fetch()) {
-			$arNews[$key]["PRODUCTS"][] = $item;
-			$arPrices[] = $item["PROPERTY_PRICE_VALUE"];
-			$arResult["PRODUCT_COUNT"]++;
-		}
-	}
+    $rsElements = CIBlockElement::GetList(
+        [],
+        ["IBLOCK_ID" => $arParams["CATALOG_IBLOCK_ID"], "SECTION_ID" => $arSectionsIds, "ACTIVE" => "Y"],
+        false,
+        false,
+        ["IBLOCK_SECTION_ID", "NAME", "PROPERTY_MATERIAL", "PROPERTY_ARTNUMBER", "PROPERTY_PRICE"]
+    );
+    while ($item = $rsElements->Fetch()) {
+        foreach ($arSections[$item["IBLOCK_SECTION_ID"]][$arParams["CATALOG_SECTION_PROPERTY_CODE"]] as $arSection) {
+            $arNews[$arSection]["PRODUCTS"][] = $item;
+        }
+        $arPrices[] = $item["PROPERTY_PRICE_VALUE"];
+        $arResult["PRODUCT_COUNT"]++;
+    }
+    foreach($arSections as $arSection) {
+        foreach($arSection[$arParams["CATALOG_SECTION_PROPERTY_CODE"]] as $arElement) {
+            $arNews[$arElement]["SECTIONS"][] = $arSection["NAME"];
+        }
+    }
 	/** Получение максимальной и минимальной цены для последущего отображения данных в другом месте */
 	if (!empty($arPrices)) {
 		sort($arPrices);
